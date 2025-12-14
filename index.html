@@ -142,15 +142,18 @@
             </select>
         </div>
         <div class="form-group">
-            <label for="distance" id="distance-label">Distance (Static 100-1600, Mobile 200-600):</label>
-            <input type="number" id="distance" class="form-control" min="100" max="1600" value="100"
-                oninput="updateElevation()">
+            <label for="distance" id="distance-label">Distance (100-1600M):</label>
+            <input type="number" id="distance" class="form-control" min="100" max="1600" oninput="updateElevation()">
         </div>
         <div class="form-group">
-            <label for="elevation">Elevation:</label>
+            <label for="elevation" id="elevation-label">Elevation (MIL):</label>
             <input type="number" id="elevation" class="form-control readonly-field" readonly>
         </div>
-        <div class="form-group">
+        <div class="form-group" id="vehicleElevation-group" style="display:none">
+            <label for="vehicleElevation" id="vehicleElevation-label">Vehicle Elevation (MIL):</label>
+            <input type="number" id="vehicleElevation" class="form-control" min="-100" max="100" oninput="updateElevation()" value="0">
+        </div>
+        <div class="form-group" id="bearing-group">
             <label for="bearing" id="bearing-label">Bearing (0-359):</label>
             <input type="number" id="bearing" class="form-control" min="0" max="359" oninput="updateBearingLoader()">
         </div>
@@ -167,7 +170,8 @@
     <script>
         let countdown;
         function startCountdown() {
-            let timeLeft = 25;
+            let timeLeft = flightTimeFromDistance(parseInt(document.getElementById("distance").value));
+            <!-- let timeLeft = 25; -->
             const display = document.getElementById("countdownDisplay");
             display.textContent = timeLeft;
             clearInterval(countdown);
@@ -184,6 +188,7 @@
         function updateElevation() {
             const gunType = document.getElementById("gunType").value;
             const distance = parseInt(document.getElementById("distance").value);
+            const vehicleElev = parseFloat(document.getElementById("vehicleElevation").value);
             let minDist, maxDist, minElev, maxElev;
 
             switch (gunType) {
@@ -194,18 +199,14 @@
                     maxElev = 267;
                     minDist = 200;
                     maxDist = 600;
-                    resetBearing();
-                    hideBearing();
-                    hideBearingLoader();
+                    switchToMobile();
                     break;
                 case "Great Britain[M]":
                     minElev = 356;
                     maxElev = 178;
                     minDist = 200;
                     maxDist = 600;
-                    resetBearing();
-                    hideBearing();
-                    hideBearingLoader();
+                    switchToMobile();
                     break;
                 case "United States[S]":
                 case "Germany[S]":
@@ -213,24 +214,21 @@
                     maxElev = 622;
                     minDist = 100;
                     maxDist = 1600;
-                    showBearing();
-                    showBearingLoader();
+                    switchToStatic();
                     break;
                 case "Great Britain[S]":
                     minElev = 533;
                     maxElev = 267;
                     minDist = 100;
                     maxDist = 1600;
-                    showBearing();
-                    showBearingLoader();
+                    switchToStatic();
                     break;
                 case "USSR[S]":
                     minElev = 1120;
                     maxElev = 800;
                     minDist = 100;
                     maxDist = 1600;
-                    showBearing();
-                    showBearingLoader();
+                    switchToStatic();
                     break;
             }
 
@@ -240,9 +238,51 @@
             } else {
                 document.getElementById("distance-label").className = "";
                 const elevation = minElev - ((distance - minDist) / (maxDist - minDist)) * (minElev - maxElev);
-                document.getElementById("elevation").value = Math.round(elevation);
+                const recalcDistance =  Math.round(minDist + (minElev - (elevation - vehicleElev)) * (maxDist - minDist) / (minElev - maxElev));
+                const recalcElev = elevation - vehicleElev;
+                if (recalcElev > minElev || recalcElev < maxElev) {
+                    document.getElementById("elevation-label").innerHTML = "Elevation (MIL, effective distance: " + recalcDistance + "):"
+                    document.getElementById("elevation-label").className = "error-label";
+                    document.getElementById("elevation").value = Math.round(elevation);
+                    document.getElementById("countdownDisplay").textContent = flightTimeFromDistance(distance)
+                } else {
+                    document.getElementById("elevation-label").innerHTML = "Elevation (MIL):"
+                    document.getElementById("elevation-label").className = "";
+                    document.getElementById("elevation").value = Math.round(elevation - vehicleElev);
+                    document.getElementById("countdownDisplay").textContent = flightTimeFromDistance(recalcDistance)
+                }
             }
+        }
 
+        function flightTimeFromDistance(distance) {
+            if (document.getElementById("gunType").value.includes("[M]")) {
+                const time = 0.146 * Math.pow(distance, 0.71);
+                const result = Math.round(time);
+                if (result) {
+                    return result;
+                }
+                return 0;
+            }
+            return 25
+        }
+
+        function switchToStatic() {
+            showBearing();
+            showBearingLoader();
+            document.getElementById("vehicleElevation-group").style = "display:none";
+            document.getElementById("vehicleElevation").value = 0;
+            document.getElementById("bearing-group").style = "display:block";
+            document.getElementById("bearing-label").innerHTML = "Bearing (0-359):";
+            document.getElementById("distance-label").innerHTML = "Distance (100-1600M):";
+        }
+
+        function switchToMobile() {
+            resetBearing();
+            hideBearing();
+            hideBearingLoader();
+            document.getElementById("vehicleElevation-group").style = "display:block";
+            document.getElementById("bearing-group").style = "display:none";
+            document.getElementById("distance-label").innerHTML = "Distance (200-600M):";
         }
 
         function hideBearingLoader() {
