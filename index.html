@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hell Let Loose Artillery Calculator</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        /* ===== GLOBAL ===== */
+        body {
+            padding: 20px;
+            background: linear-gradient(180deg, #141414, #0b0b0b);
+            color: #d4d4d4;
+            font-family: Arial, sans-serif;
+        }
+
+        /* ===== MAIN PANEL ===== */
+        .container {
+            max-width: 520px;
+            background: linear-gradient(145deg, #2e2e2e, #1c1c1c);
+            padding: 30px;
+            border-radius: 10px;
+            border: 3px solid #3f3f3f;
+            box-shadow:
+                inset 0 0 20px rgba(0, 0, 0, 0.8),
+                0 15px 40px rgba(0, 0, 0, 0.9);
+        }
+
+        /* ===== TITLE ===== */
+        h2 {
+            color: #f5b041;
+            text-transform: uppercase;
+            text-align: center;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-bottom: 25px;
+            text-shadow: 0 2px 2px #000;
+        }
+
+        /* ===== LABELS ===== */
+        label {
+            font-weight: bold;
+            font-size: 13px;
+            text-transform: uppercase;
+            color: #f5b041;
+        }
+
+        .error-label {
+            color: #ff4e4e;
+        }
+
+        /* ===== INPUTS ===== */
+        .form-control {
+            background-color: #111;
+            color: #ffffff;
+            border: 2px solid #444;
+            padding: 12px 14px;
+            font-size: 15px;
+            line-height: 1.4;
+            border-radius: 6px;
+            box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.9);
+            height: auto;
+        }
+
+        select.form-control {
+            padding-right: 36px;
+        }
+
+        select.form-control option {
+            white-space: normal;
+        }
+
+        .form-control:focus {
+            border-color: #f5b041;
+            box-shadow: 0 0 10px rgba(245, 176, 65, 0.4);
+            background-color: #111;
+            color: #ffffff;
+        }
+
+        .readonly-field {
+            background-color: #1a1a1a !important;
+            color: #cfcfcf !important;
+        }
+
+        /* ===== BUTTON ===== */
+        .btn-custom {
+            background: linear-gradient(#f5b041, #c47e12);
+            border: 2px solid #8a5a0c;
+            color: #1a1a1a;
+            font-weight: bold;
+            padding: 12px;
+            border-radius: 6px;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 0 #6d4709, 0 8px 15px rgba(0, 0, 0, 0.8);
+        }
+
+        .btn-custom:hover {
+            background: linear-gradient(#ffc15d, #d28b1a);
+        }
+
+        .btn-custom:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #6d4709;
+        }
+
+        /* ===== COUNTDOWN ===== */
+        .countdown {
+            font-size: 42px;
+            text-align: center;
+            margin-top: 20px;
+            font-weight: bold;
+            color: #f5b041;
+            text-shadow: 0 2px 2px #000;
+        }
+
+        /* ===== SEPARATOR ===== */
+        .panel-divider {
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #555, transparent);
+            margin: 20px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Hell Let Loose Artillery Calculator</h2>
+        <div class="form-group">
+            <label for="gunType">Gun Type:</label>
+            <select id="gunType" class="form-control" onchange="updateElevation()">
+                <option value="United States[S]">United States - Static</option>
+                <option value="United States[M]">United States - Mobile</option>
+                <option value="Germany[S]">Germany - Static</option>
+                <option value="Germany[M]">Germany - Mobile</option>
+                <option value="Great Britain[S]">Great Britain - Static</option>
+                <option value="Great Britain[M]">Great Britain - Mobile</option>
+                <option value="USSR[S]">USSR - Static</option>
+                <option value="USSR[M]">USSR - Mobile</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="distance" id="distance-label">Distance (Static 100-1600, Mobile 200-600):</label>
+            <input type="number" id="distance" class="form-control" min="100" max="1600" value="100"
+                oninput="updateElevation()">
+        </div>
+        <div class="form-group">
+            <label for="elevation">Elevation:</label>
+            <input type="number" id="elevation" class="form-control readonly-field" readonly>
+        </div>
+        <div class="form-group">
+            <label for="bearing" id="bearing-label">Bearing (0-359):</label>
+            <input type="number" id="bearing" class="form-control" min="0" max="359" oninput="updateBearingLoader()">
+        </div>
+        <div class="form-group">
+            <label for="bearingLoader" id="bearingLoader-label">Bearing (loader for static only) (0-359):</label>
+            <input type="number" id="bearingLoader" class="form-control readonly-field" min="0" max="359" readonly>
+        </div>
+        <div class="container">
+            <button id="startCountdown" class="btn btn-custom">Start Impact Countdown</button>
+            <div id="countdownDisplay" class="countdown">0</div>
+        </div>
+    </div>
+
+    <script>
+        let countdown;
+        function startCountdown() {
+            let timeLeft = 25;
+            const display = document.getElementById("countdownDisplay");
+            display.textContent = timeLeft;
+            clearInterval(countdown);
+            countdown = setInterval(() => {
+                timeLeft--;
+                display.textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    clearInterval(countdown);
+                }
+            }, 1000);
+        }
+
+        document.getElementById("startCountdown").addEventListener("click", startCountdown);
+        function updateElevation() {
+            const gunType = document.getElementById("gunType").value;
+            const distance = parseInt(document.getElementById("distance").value);
+            let minDist, maxDist, minElev, maxElev;
+
+            switch (gunType) {
+                case "United States[M]":
+                case "Germany[M]":
+                case "USSR[M]":
+                    minElev = 533;
+                    maxElev = 267;
+                    minDist = 200;
+                    maxDist = 600;
+                    resetBearing();
+                    hideBearing();
+                    hideBearingLoader();
+                    break;
+                case "Great Britain[M]":
+                    minElev = 356;
+                    maxElev = 178;
+                    minDist = 200;
+                    maxDist = 600;
+                    resetBearing();
+                    hideBearing();
+                    hideBearingLoader();
+                    break;
+                case "United States[S]":
+                case "Germany[S]":
+                    minElev = 978;
+                    maxElev = 622;
+                    minDist = 100;
+                    maxDist = 1600;
+                    showBearing();
+                    showBearingLoader();
+                    break;
+                case "Great Britain[S]":
+                    minElev = 533;
+                    maxElev = 267;
+                    minDist = 100;
+                    maxDist = 1600;
+                    showBearing();
+                    showBearingLoader();
+                    break;
+                case "USSR[S]":
+                    minElev = 1120;
+                    maxElev = 800;
+                    minDist = 100;
+                    maxDist = 1600;
+                    showBearing();
+                    showBearingLoader();
+                    break;
+            }
+
+            if (distance < minDist || distance > maxDist) {
+                document.getElementById("distance-label").className = "error-label";
+                document.getElementById("elevation").value = ""
+            } else {
+                document.getElementById("distance-label").className = "";
+                const elevation = minElev - ((distance - minDist) / (maxDist - minDist)) * (minElev - maxElev);
+                document.getElementById("elevation").value = Math.round(elevation);
+            }
+
+        }
+
+        function hideBearingLoader() {
+            document.getElementById("bearingLoader-label").style.visibility = "hidden";
+            document.getElementById("bearingLoader").style.visibility = "hidden";
+        }
+
+        function showBearingLoader() {
+            document.getElementById("bearingLoader-label").style.visibility = "visible";
+            document.getElementById("bearingLoader").style.visibility = "visible";
+        }
+
+        function showBearing() {
+            document.getElementById("bearing-label").style.visibility = "visible";
+            document.getElementById("bearing").style.visibility = "visible";
+        }
+
+        function hideBearing() {
+            document.getElementById("bearing-label").style.visibility = "hidden";
+            document.getElementById("bearing").style.visibility = "hidden";
+        }
+
+        function resetBearing() {
+            document.getElementById("bearing").value = "";
+            document.getElementById("bearingLoader").value = "";
+        }
+
+        function updateBearingLoader() {
+            const bearing = parseInt(document.getElementById("bearing").value);
+            let bearingLoader = (bearing - 47 + 360) % 360;
+            document.getElementById("bearingLoader").value = bearingLoader;
+        }
+        document.getElementById("distance").addEventListener("click", function () {
+            this.value = "";
+        });
+        document.getElementById("bearing").addEventListener("click", function () {
+            this.value = "";
+        });
+    </script>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.6.2/js/bootstrap.min.js"></script>
+</body>
+
+</html>
